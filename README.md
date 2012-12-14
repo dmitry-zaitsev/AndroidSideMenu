@@ -3,6 +3,8 @@ AndroidSideMenu
 
 AndroidSideMenu lets you create side (slide\drawer, whatever you call it) menu without special effort. 
 
+![Example](https://raw.github.com/dmitry-zaitsev/AndroidSideMenu/master/screenshot.jpg)
+
 Installlation
 =============
 
