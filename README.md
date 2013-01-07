@@ -40,6 +40,10 @@ There is no need to extend another Activity, all you have to do is wrap your lay
 	
 Note, that you should provide fixed width for your menu (in xml or programmaticaly) and explicitly set non-transparent background for your main layour.
 
+On big devices (tablets in landscape orientation) consider always show side menu using this method:
+
+	setAlwaysOpened(true);
+
 License
 =======
 
