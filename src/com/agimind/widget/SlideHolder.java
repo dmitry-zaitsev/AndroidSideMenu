@@ -20,6 +20,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
+import android.graphics.Region.Op;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -45,20 +46,56 @@ public class SlideHolder extends FrameLayout {
 	private int mEndOffset;
 	
 	private boolean mEnabled = true;
+	private boolean mAlwaysOpened = false;
 	
 	private OnSlideListener mListener;
 	
 	public SlideHolder(Context context) {
-		this(context, null, 0);
+		super(context);
 	}
 	
 	public SlideHolder(Context context, AttributeSet attrs) {
-		this(context, attrs, 0);
+		super(context, attrs);
 	}
 	
 	public SlideHolder(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
 	}
+	
+	@Override
+	protected void onLayout(boolean changed, int l, int t, int r, int b) {
+		if(!mAlwaysOpened) {
+			super.onLayout(changed, l, t, r, b);
+			invalidate();
+			
+			return;
+		}
+		
+		View menu = getChildAt(0);
+		int menuWidth = menu.getMeasuredWidth();
+		
+		menu.layout(l, t, menuWidth, b);
+		
+		View main = getChildAt(1);
+		main.layout(l + menuWidth, t, l + menuWidth + main.getMeasuredWidth(), b);
+		
+		invalidate();
+	}
+	
+	@Override
+    protected void onMeasure(int wSp, int hSp) {
+        if(mAlwaysOpened) {
+            View menu = getChildAt(0);
+            View main = getChildAt(1);
+            
+            if(menu != null && main != null) {
+                LayoutParams lp = (LayoutParams) main.getLayoutParams();
+                lp.leftMargin = menu.getMeasuredWidth();
+            }
+        }
+        
+        super.onMeasure(wSp, hSp);
+    }
 	
 	@Override
 	public void setEnabled(boolean enabled) {
@@ -68,6 +105,12 @@ public class SlideHolder extends FrameLayout {
 	@Override
 	public boolean isEnabled() {
 		return mEnabled;
+	}
+	
+	public void setAlwaysOpened(boolean opened) {
+		mAlwaysOpened = opened;
+		
+		requestLayout();
 	}
 	
 	public void setOnSlideListener(OnSlideListener lis) {
@@ -87,7 +130,7 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean open() {
-		if(isOpened()) {
+		if(isOpened() || mAlwaysOpened) {
 			return false;
 		}
 		
@@ -103,7 +146,7 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean close() {
-		if(!isOpened()) {
+		if(!isOpened() || mAlwaysOpened) {
 			return false;
 		}
 		
@@ -122,21 +165,36 @@ public class SlideHolder extends FrameLayout {
 	
 	@Override
 	protected void dispatchDraw(Canvas canvas) {
+		if(mAlwaysOpened) {
+			super.dispatchDraw(canvas);
+			return;
+		}
+		
 		try {
 			if(mSlideMode == MODE_READY) {
 				getChildAt(1).draw(canvas);
 			} else if(mSlideMode == MODE_SLIDE || mSlideMode == MODE_FINISHED) {
-				if(++mFrame % 5 == 0) getChildAt(1).draw(mCachedCanvas);	//перерисовываем каждый 5 кадр
+				if(++mFrame % 5 == 0) {		//redraw every 5th frame
+					getChildAt(1).draw(mCachedCanvas);
+				}
+				
+				/*
+				 * Draw only visible part of menu
+				 */
+				
+				canvas.save();
+				canvas.clipRect(0, 0, mOffset, getHeight(), Op.REPLACE);
 				
 				getChildAt(0).draw(canvas);
+				
+				canvas.restore();
+				
 				canvas.drawBitmap(mCachedBitmap, mOffset, 0, null);
 			}
 		} catch(IndexOutOfBoundsException e) {
 			/*
-			 * Ќа некоторых устройствах (в основном на телефонах Samsung) возможны
-			 * вылеты при отрисовке пустого ListView.
-			 * 
-			 * Ќичего здесь не делаем.
+			 * Possibility of crashes on some devices (especially on Samsung).
+			 * Usually, when ListView is empty.
 			 */
 		}
 	}
@@ -146,24 +204,37 @@ public class SlideHolder extends FrameLayout {
 	private boolean mClosing = false;
 	
 	@Override
-	public boolean onInterceptTouchEvent(MotionEvent ev) {
-		if(!mEnabled) {
-			return false;
+	public boolean dispatchTouchEvent(MotionEvent ev) {
+		if(!mEnabled || mAlwaysOpened) {
+			return super.dispatchTouchEvent(ev);
 		}
 		
-		mClosing = false;
-		
 		if(mSlideMode != MODE_FINISHED) {
-			return onTouchEvent(ev);
+			onTouchEvent(ev);
+			
+			if(mSlideMode != MODE_SLIDE) {
+				super.dispatchTouchEvent(ev);
+			} else {
+				MotionEvent cancelEvent = MotionEvent.obtain(ev);
+				cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
+				super.dispatchTouchEvent(cancelEvent);
+			}
+			
+			return true;
 		} else {
 			Rect rect = new Rect();
 			getChildAt(0).getHitRect(rect);
 			
 			if(!rect.contains((int) ev.getX(), (int) ev.getY())) {
 				mClosing = true;
+				onTouchEvent(ev);
+				
 				return true;
 			} else {
-				return onTouchEvent(ev);
+				onTouchEvent(ev);
+				super.dispatchTouchEvent(ev);
+				
+				return true;
 			}
 		}
 	}
@@ -184,7 +255,8 @@ public class SlideHolder extends FrameLayout {
 		
 		if(ev.getAction() == MotionEvent.ACTION_MOVE) {
 			float diff = x - mHistoricalX;
-			if((diff > getWidth()/8 && mSlideMode == MODE_READY) || (diff < -getWidth()/8 && mSlideMode == MODE_FINISHED)) {
+			//if((diff > getWidth()/20 && mSlideMode == MODE_READY) || (diff < -getWidth()/20 && mSlideMode == MODE_FINISHED)) {
+			if((diff > 50 && mSlideMode == MODE_READY) || (diff < -50 && mSlideMode == MODE_FINISHED)) {
 				mHistoricalX = (int) x;
 				
 				startSlideMode();
@@ -231,7 +303,7 @@ public class SlideHolder extends FrameLayout {
 		
 		mOffset = mStartOffset;
 		
-		if(mCachedBitmap == null) {
+		if(mCachedBitmap == null || mCachedBitmap.isRecycled() || mCachedBitmap.getWidth() != v.getWidth()) {
 			mCachedBitmap = Bitmap.createBitmap(v.getWidth(), v.getHeight(), Bitmap.Config.ARGB_8888);
 			mCachedCanvas = new Canvas(mCachedBitmap);
 		}
