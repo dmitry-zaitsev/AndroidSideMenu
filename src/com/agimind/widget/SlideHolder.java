@@ -46,6 +46,7 @@ public class SlideHolder extends FrameLayout {
 	private int mEndOffset;
 	
 	private boolean mEnabled = true;
+	private boolean mInterceptTouch = true;
 	private boolean mAlwaysOpened = false;
 	
 	private OnSlideListener mListener;
@@ -66,7 +67,6 @@ public class SlideHolder extends FrameLayout {
 	protected void onLayout(boolean changed, int l, int t, int r, int b) {
 		if(!mAlwaysOpened) {
 			super.onLayout(changed, l, t, r, b);
-			invalidate();
 			
 			return;
 		}
@@ -74,7 +74,7 @@ public class SlideHolder extends FrameLayout {
 		View menu = getChildAt(0);
 		int menuWidth = menu.getMeasuredWidth();
 		
-		menu.layout(l, t, menuWidth, b);
+		menu.layout(l, t, l+menuWidth, b);
 		
 		View main = getChildAt(1);
 		main.layout(l + menuWidth, t, l + menuWidth + main.getMeasuredWidth(), b);
@@ -105,6 +105,14 @@ public class SlideHolder extends FrameLayout {
 	@Override
 	public boolean isEnabled() {
 		return mEnabled;
+	}
+	
+	public void setAllowInterceptTouch(boolean allow) {
+		mInterceptTouch = allow;
+	}
+	
+	public boolean isAllowedInterceptTouch() {
+		return mInterceptTouch;
 	}
 	
 	public void setAlwaysOpened(boolean opened) {
@@ -182,10 +190,16 @@ public class SlideHolder extends FrameLayout {
 				 * Draw only visible part of menu
 				 */
 				
-				canvas.save();
-				canvas.clipRect(0, 0, mOffset, getHeight(), Op.REPLACE);
+				View menu = getChildAt(0);
+				final int scrollX = menu.getScrollX();
+				final int scrollY = menu.getScrollY();
 				
-				getChildAt(0).draw(canvas);
+				canvas.save();
+				
+				canvas.clipRect(0, 0, mOffset, getHeight(), Op.REPLACE);
+				canvas.translate(-scrollX, -scrollY);
+				
+				menu.draw(canvas);
 				
 				canvas.restore();
 				
@@ -205,7 +219,7 @@ public class SlideHolder extends FrameLayout {
 	
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev) {
-		if(!mEnabled || mAlwaysOpened) {
+		if(!mEnabled || mAlwaysOpened || !mInterceptTouch) {
 			return super.dispatchTouchEvent(ev);
 		}
 		
@@ -223,7 +237,8 @@ public class SlideHolder extends FrameLayout {
 			return true;
 		} else {
 			Rect rect = new Rect();
-			getChildAt(0).getHitRect(rect);
+			View menu = getChildAt(0);
+			menu.getHitRect(rect);
 			
 			if(!rect.contains((int) ev.getX(), (int) ev.getY())) {
 				mClosing = true;
@@ -232,7 +247,9 @@ public class SlideHolder extends FrameLayout {
 				return true;
 			} else {
 				onTouchEvent(ev);
-				super.dispatchTouchEvent(ev);
+				
+				ev.offsetLocation(-menu.getLeft(), -menu.getTop());
+				menu.dispatchTouchEvent(ev);
 				
 				return true;
 			}
@@ -310,6 +327,7 @@ public class SlideHolder extends FrameLayout {
 		
 		v.setVisibility(View.VISIBLE);
 		
+		mCachedCanvas.translate(-v.getScrollX(), -v.getScrollY());
 		v.draw(mCachedCanvas);
 		
 		mTopView = v;
