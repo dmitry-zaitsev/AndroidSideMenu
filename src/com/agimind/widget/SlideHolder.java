@@ -71,13 +71,22 @@ public class SlideHolder extends FrameLayout {
 			return;
 		}
 		
+		final int parentLeft = 0;
+		final int parentTop = 0;
+		final int parentBottom = b - t;
+		
 		View menu = getChildAt(0);
 		int menuWidth = menu.getMeasuredWidth();
 		
-		menu.layout(l, t, l+menuWidth, b);
+		menu.layout(parentLeft, parentTop, parentLeft+menuWidth, parentBottom);
 		
 		View main = getChildAt(1);
-		main.layout(l + menuWidth, t, l + menuWidth + main.getMeasuredWidth(), b);
+		main.layout(
+					parentLeft + menuWidth,
+					parentTop,
+					parentLeft + menuWidth + main.getMeasuredWidth(),
+					parentBottom
+				);
 		
 		invalidate();
 	}
