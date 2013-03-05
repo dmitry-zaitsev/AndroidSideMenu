@@ -19,6 +19,7 @@ package com.agimind.widget;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Region.Op;
 import android.util.AttributeSet;
@@ -37,7 +38,8 @@ public class SlideHolder extends FrameLayout {
 	
 	private Bitmap mCachedBitmap;
 	private Canvas mCachedCanvas;
-	private View mTopView;
+	private Paint mCachedPaint;
+	private View mMenuView;
 	
 	private int mSlideMode = MODE_READY;
 	
@@ -53,24 +55,32 @@ public class SlideHolder extends FrameLayout {
 	
 	public SlideHolder(Context context) {
 		super(context);
+		
+		initView();
 	}
 	
 	public SlideHolder(Context context, AttributeSet attrs) {
 		super(context, attrs);
+		
+		initView();
 	}
 	
 	public SlideHolder(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
+		
+		initView();
+	}
+	
+	private void initView() {
+		mCachedPaint = new Paint(
+					Paint.ANTI_ALIAS_FLAG
+					| Paint.FILTER_BITMAP_FLAG
+					| Paint.DITHER_FLAG
+				);
 	}
 	
 	@Override
 	protected void onLayout(boolean changed, int l, int t, int r, int b) {
-		if(!mAlwaysOpened) {
-			super.onLayout(changed, l, t, r, b);
-			
-			return;
-		}
-		
 		final int parentLeft = 0;
 		final int parentTop = 0;
 		final int parentBottom = b - t;
@@ -80,11 +90,15 @@ public class SlideHolder extends FrameLayout {
 		
 		menu.layout(parentLeft, parentTop, parentLeft+menuWidth, parentBottom);
 		
+		if(mAlwaysOpened) {
+			mOffset = menuWidth;
+		}
+		
 		View main = getChildAt(1);
 		main.layout(
-					parentLeft + menuWidth,
+					parentLeft + mOffset,
 					parentTop,
-					parentLeft + menuWidth + main.getMeasuredWidth(),
+					parentLeft + mOffset + main.getMeasuredWidth(),
 					parentBottom
 				);
 		
@@ -93,13 +107,14 @@ public class SlideHolder extends FrameLayout {
 	
 	@Override
     protected void onMeasure(int wSp, int hSp) {
+		mMenuView = getChildAt(0);
+		
         if(mAlwaysOpened) {
-            View menu = getChildAt(0);
             View main = getChildAt(1);
             
-            if(menu != null && main != null) {
+            if(mMenuView != null && main != null) {
                 LayoutParams lp = (LayoutParams) main.getLayoutParams();
-                lp.leftMargin = menu.getMeasuredWidth();
+                lp.leftMargin = mMenuView.getMeasuredWidth();
             }
         }
         
@@ -182,15 +197,8 @@ public class SlideHolder extends FrameLayout {
 	
 	@Override
 	protected void dispatchDraw(Canvas canvas) {
-		if(mAlwaysOpened) {
-			super.dispatchDraw(canvas);
-			return;
-		}
-		
 		try {
-			if(mSlideMode == MODE_READY) {
-				getChildAt(1).draw(canvas);
-			} else if(mSlideMode == MODE_SLIDE || mSlideMode == MODE_FINISHED) {
+			if(mSlideMode == MODE_SLIDE) {
 				if(++mFrame % 5 == 0) {		//redraw every 5th frame
 					getChildAt(1).draw(mCachedCanvas);
 				}
@@ -212,7 +220,13 @@ public class SlideHolder extends FrameLayout {
 				
 				canvas.restore();
 				
-				canvas.drawBitmap(mCachedBitmap, mOffset, 0, null);
+				canvas.drawBitmap(mCachedBitmap, mOffset, 0, mCachedPaint);
+			} else {
+				if(!mAlwaysOpened && mSlideMode == MODE_READY) {
+		        	mMenuView.setVisibility(View.GONE);
+		        }
+				
+				super.dispatchDraw(canvas);
 			}
 		} catch(IndexOutOfBoundsException e) {
 			/*
@@ -228,7 +242,7 @@ public class SlideHolder extends FrameLayout {
 	
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev) {
-		if(!mEnabled || mAlwaysOpened || !mInterceptTouch) {
+		if(((!mEnabled || !mInterceptTouch) && mSlideMode == MODE_READY) || mAlwaysOpened) {
 			return super.dispatchTouchEvent(ev);
 		}
 		
@@ -265,8 +279,7 @@ public class SlideHolder extends FrameLayout {
 		}
 	}
 	
-	@Override
-	public boolean onTouchEvent(MotionEvent ev) {
+	private boolean handleTouchEvent(MotionEvent ev) {
 		if(!mEnabled) {
 			return false;
 		}
@@ -297,8 +310,6 @@ public class SlideHolder extends FrameLayout {
 			} else {
 				return false;
 			}
-			
-			invalidate();
 		}
 		
 		if(ev.getAction() == MotionEvent.ACTION_UP) {
@@ -306,14 +317,19 @@ public class SlideHolder extends FrameLayout {
 				finishSlide();
 			}
 			
-			invalidate();
-			
 			return false;
 		}
 		
+		return mSlideMode == MODE_SLIDE;
+	}
+	
+	@Override
+	public boolean onTouchEvent(MotionEvent ev) {
+		boolean handled = handleTouchEvent(ev);
+		
 		invalidate();
 		
-		return mSlideMode == MODE_SLIDE;
+		return handled;
 	}
 	
 	private void startSlideMode() {
@@ -339,9 +355,9 @@ public class SlideHolder extends FrameLayout {
 		mCachedCanvas.translate(-v.getScrollX(), -v.getScrollY());
 		v.draw(mCachedCanvas);
 		
-		mTopView = v;
-		
 		mSlideMode = MODE_SLIDE;
+		
+		mMenuView.setVisibility(View.VISIBLE);
 	}
 	
 	private boolean isSlideAllowed() {
@@ -359,8 +375,16 @@ public class SlideHolder extends FrameLayout {
 		
 		@Override
 		public void onAnimationEnd(Animation animation) {
-			mSlideMode = MODE_FINISHED;
-			mTopView.setVisibility(View.GONE);
+			mOffset = mMenuView.getWidth();
+			requestLayout();
+			
+			post(new Runnable() {
+				
+				@Override
+				public void run() {
+					mSlideMode = MODE_FINISHED;
+				}
+			});
 			
 			if(mListener != null) {
 				mListener.onSlideCompleted(true);
@@ -378,8 +402,17 @@ public class SlideHolder extends FrameLayout {
 		
 		@Override
 		public void onAnimationEnd(Animation animation) {
-			mSlideMode = MODE_READY;
-			mTopView.setVisibility(View.VISIBLE);
+			mOffset = 0;
+			requestLayout();
+			
+			post(new Runnable() {
+				
+				@Override
+				public void run() {
+					mSlideMode = MODE_READY;
+					mMenuView.setVisibility(View.GONE);
+				}
+			});
 			
 			if(mListener != null) {
 				mListener.onSlideCompleted(false);
@@ -442,6 +475,7 @@ public class SlideHolder extends FrameLayout {
 			
 			float offset = (mEnd - mStart) * interpolatedTime + mStart;
 			mOffset = (int) offset;
+			
 			postInvalidate();
 		}
 		
