@@ -7,7 +7,7 @@ AndroidSideMenu lets you create side (slide\drawer, whatever you call it) menu w
 
 Why this one is better than others? Because it works much faster (thanks to caching), so it's doesn't matter how complex your layouts are.
 
-<b>Note</b> that this library <b>doesn't</b> provide tools for creating menu itself, you are free to put in side menu whatever you want (ListView? LinearLayout? RelativeLayout? ImageView? ...)
+<b>Note</b> that this library <b>doesn't</b> provide tools for creating menu itself, you are free to put inside menu whatever you want (ListView? LinearLayout? RelativeLayout? ImageView? ...)
 
 Installlation
 =============
