@@ -90,8 +90,10 @@ public class SlideHolder extends FrameLayout {
 		
 		menu.layout(parentLeft, parentTop, parentLeft+menuWidth, parentBottom);
 		
-		if(mAlwaysOpened) {
+		if(mAlwaysOpened || mSlideMode == MODE_FINISHED) {
 			mOffset = menuWidth;
+		} else if(mSlideMode == MODE_READY) {
+			mOffset = 0;
 		}
 		
 		View main = getChildAt(1);
@@ -161,6 +163,14 @@ public class SlideHolder extends FrameLayout {
 		}
 	}
 	
+	public void toggleImmediately() {
+		if(isOpened()) {
+			closeImmediately();
+		} else {
+			openImmediately();
+		}
+	}
+	
 	public boolean open() {
 		if(isOpened() || mAlwaysOpened) {
 			return false;
@@ -173,6 +183,22 @@ public class SlideHolder extends FrameLayout {
 		startAnimation(anim);
 		
 		invalidate();
+		
+		return true;
+	}
+	
+	public boolean openImmediately() {
+		if(isOpened() || mAlwaysOpened) {
+			return false;
+		}
+		
+		mMenuView.setVisibility(View.VISIBLE);
+		mSlideMode = MODE_FINISHED;
+		requestLayout();
+		
+		if(mListener != null) {
+			mListener.onSlideCompleted(true);
+		}
 		
 		return true;
 	}
@@ -192,6 +218,22 @@ public class SlideHolder extends FrameLayout {
 		
 		return true;
 	}
+	
+	public boolean closeImmediately() {
+		if(!isOpened() || mAlwaysOpened) {
+			return false;
+		}
+		
+		mMenuView.setVisibility(View.GONE);
+		mSlideMode = MODE_READY;
+		requestLayout();
+		
+		if(mListener != null) {
+			mListener.onSlideCompleted(false);
+		}
+		
+		return true;
+	}
 
 	private byte mFrame = 0;
 	
@@ -202,7 +244,7 @@ public class SlideHolder extends FrameLayout {
 				if(++mFrame % 5 == 0) {		//redraw every 5th frame
 					getChildAt(1).draw(mCachedCanvas);
 				}
-				
+
 				/*
 				 * Draw only visible part of menu
 				 */
@@ -294,7 +336,7 @@ public class SlideHolder extends FrameLayout {
 		
 		if(ev.getAction() == MotionEvent.ACTION_MOVE) {
 			float diff = x - mHistoricalX;
-			//if((diff > getWidth()/20 && mSlideMode == MODE_READY) || (diff < -getWidth()/20 && mSlideMode == MODE_FINISHED)) {
+
 			if((diff > 50 && mSlideMode == MODE_READY) || (diff < -50 && mSlideMode == MODE_FINISHED)) {
 				mHistoricalX = (int) x;
 				
@@ -365,6 +407,24 @@ public class SlideHolder extends FrameLayout {
 				|| (mEndOffset == 0 && mOffset > mEndOffset && mOffset <= mStartOffset);
 	}
 	
+	private void completeOpening() {
+		mOffset = mMenuView.getWidth();
+		requestLayout();
+		
+		post(new Runnable() {
+			
+			@Override
+			public void run() {
+				mSlideMode = MODE_FINISHED;
+				mMenuView.setVisibility(View.VISIBLE);
+			}
+		});
+		
+		if(mListener != null) {
+			mListener.onSlideCompleted(true);
+		}
+	}
+	
 	private Animation.AnimationListener mOpenListener = new Animation.AnimationListener() {
 		
 		@Override
@@ -375,22 +435,27 @@ public class SlideHolder extends FrameLayout {
 		
 		@Override
 		public void onAnimationEnd(Animation animation) {
-			mOffset = mMenuView.getWidth();
-			requestLayout();
-			
-			post(new Runnable() {
-				
-				@Override
-				public void run() {
-					mSlideMode = MODE_FINISHED;
-				}
-			});
-			
-			if(mListener != null) {
-				mListener.onSlideCompleted(true);
-			}
+			completeOpening();
 		}
 	};
+	
+	private void completeClosing() {
+		mOffset = 0;
+		requestLayout();
+		
+		post(new Runnable() {
+			
+			@Override
+			public void run() {
+				mSlideMode = MODE_READY;
+				mMenuView.setVisibility(View.GONE);
+			}
+		});
+		
+		if(mListener != null) {
+			mListener.onSlideCompleted(false);
+		}
+	}
 	
 	private Animation.AnimationListener mCloseListener = new Animation.AnimationListener() {
 		
@@ -402,21 +467,7 @@ public class SlideHolder extends FrameLayout {
 		
 		@Override
 		public void onAnimationEnd(Animation animation) {
-			mOffset = 0;
-			requestLayout();
-			
-			post(new Runnable() {
-				
-				@Override
-				public void run() {
-					mSlideMode = MODE_READY;
-					mMenuView.setVisibility(View.GONE);
-				}
-			});
-			
-			if(mListener != null) {
-				mListener.onSlideCompleted(false);
-			}
+			completeClosing();
 		}
 	};
 	
