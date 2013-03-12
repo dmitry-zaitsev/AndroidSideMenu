@@ -115,6 +115,7 @@ public class SlideHolder extends FrameLayout {
             View main = getChildAt(1);
             
             if(mMenuView != null && main != null) {
+            	measureChild(mMenuView, wSp, hSp);
                 LayoutParams lp = (LayoutParams) main.getLayoutParams();
                 lp.leftMargin = mMenuView.getMeasuredWidth();
             }
