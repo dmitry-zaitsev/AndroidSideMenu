@@ -41,7 +41,7 @@ public class SlideHolder extends FrameLayout {
 	private Paint mCachedPaint;
 	private View mMenuView;
 	
-	private int mSlideMode = MODE_READY;
+	private int mMode = MODE_READY;
 	
 	private int mOffset = 0;
 	private int mStartOffset;
@@ -90,9 +90,9 @@ public class SlideHolder extends FrameLayout {
 		
 		menu.layout(parentLeft, parentTop, parentLeft+menuWidth, parentBottom);
 		
-		if(mAlwaysOpened || mSlideMode == MODE_FINISHED) {
+		if(mAlwaysOpened || mMode == MODE_FINISHED) {
 			mOffset = menuWidth;
-		} else if(mSlideMode == MODE_READY) {
+		} else if(mMode == MODE_READY) {
 			mOffset = 0;
 		}
 		
@@ -153,7 +153,15 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean isOpened() {
-		return mSlideMode == MODE_FINISHED;
+		return mMode == MODE_FINISHED;
+	}
+	
+	public void toggle(boolean immediately) {
+		if(immediately) {
+			toggleImmediately();
+		} else {
+			toggle();
+		}
 	}
 	
 	public void toggle() {
@@ -173,11 +181,11 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean open() {
-		if(isOpened() || mAlwaysOpened) {
+		if(isOpened() || mAlwaysOpened || mMode == MODE_SLIDE) {
 			return false;
 		}
 		
-		startSlideMode();
+		initSlideMode();
 		
 		Animation anim = new SlideAnimation(mOffset, mEndOffset);
 		anim.setAnimationListener(mOpenListener);
@@ -189,12 +197,12 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean openImmediately() {
-		if(isOpened() || mAlwaysOpened) {
+		if(isOpened() || mAlwaysOpened || mMode == MODE_SLIDE) {
 			return false;
 		}
 		
 		mMenuView.setVisibility(View.VISIBLE);
-		mSlideMode = MODE_FINISHED;
+		mMode = MODE_FINISHED;
 		requestLayout();
 		
 		if(mListener != null) {
@@ -205,11 +213,11 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean close() {
-		if(!isOpened() || mAlwaysOpened) {
+		if(!isOpened() || mAlwaysOpened || mMode == MODE_SLIDE) {
 			return false;
 		}
 		
-		startSlideMode();
+		initSlideMode();
 		
 		Animation anim = new SlideAnimation(mOffset, mEndOffset);
 		anim.setAnimationListener(mCloseListener);
@@ -221,12 +229,12 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean closeImmediately() {
-		if(!isOpened() || mAlwaysOpened) {
+		if(!isOpened() || mAlwaysOpened || mMode == MODE_SLIDE) {
 			return false;
 		}
 		
 		mMenuView.setVisibility(View.GONE);
-		mSlideMode = MODE_READY;
+		mMode = MODE_READY;
 		requestLayout();
 		
 		if(mListener != null) {
@@ -241,7 +249,7 @@ public class SlideHolder extends FrameLayout {
 	@Override
 	protected void dispatchDraw(Canvas canvas) {
 		try {
-			if(mSlideMode == MODE_SLIDE) {
+			if(mMode == MODE_SLIDE) {
 				if(++mFrame % 5 == 0) {		//redraw every 5th frame
 					getChildAt(1).draw(mCachedCanvas);
 				}
@@ -265,7 +273,7 @@ public class SlideHolder extends FrameLayout {
 				
 				canvas.drawBitmap(mCachedBitmap, mOffset, 0, mCachedPaint);
 			} else {
-				if(!mAlwaysOpened && mSlideMode == MODE_READY) {
+				if(!mAlwaysOpened && mMode == MODE_READY) {
 		        	mMenuView.setVisibility(View.GONE);
 		        }
 				
@@ -285,14 +293,14 @@ public class SlideHolder extends FrameLayout {
 	
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev) {
-		if(((!mEnabled || !mInterceptTouch) && mSlideMode == MODE_READY) || mAlwaysOpened) {
+		if(((!mEnabled || !mInterceptTouch) && mMode == MODE_READY) || mAlwaysOpened) {
 			return super.dispatchTouchEvent(ev);
 		}
 		
-		if(mSlideMode != MODE_FINISHED) {
+		if(mMode != MODE_FINISHED) {
 			onTouchEvent(ev);
 			
-			if(mSlideMode != MODE_SLIDE) {
+			if(mMode != MODE_SLIDE) {
 				super.dispatchTouchEvent(ev);
 			} else {
 				MotionEvent cancelEvent = MotionEvent.obtain(ev);
@@ -338,11 +346,11 @@ public class SlideHolder extends FrameLayout {
 		if(ev.getAction() == MotionEvent.ACTION_MOVE) {
 			float diff = x - mHistoricalX;
 
-			if((diff > 50 && mSlideMode == MODE_READY) || (diff < -50 && mSlideMode == MODE_FINISHED)) {
+			if((diff > 50 && mMode == MODE_READY) || (diff < -50 && mMode == MODE_FINISHED)) {
 				mHistoricalX = (int) x;
 				
-				startSlideMode();
-			} else if(mSlideMode == MODE_SLIDE) {
+				initSlideMode();
+			} else if(mMode == MODE_SLIDE) {
 				mOffset += (int) x - mHistoricalX;
 				
 				mHistoricalX = (int) x;
@@ -356,14 +364,14 @@ public class SlideHolder extends FrameLayout {
 		}
 		
 		if(ev.getAction() == MotionEvent.ACTION_UP) {
-			if(mSlideMode == MODE_SLIDE) {
+			if(mMode == MODE_SLIDE) {
 				finishSlide();
 			}
 			
 			return false;
 		}
 		
-		return mSlideMode == MODE_SLIDE;
+		return mMode == MODE_SLIDE;
 	}
 	
 	@Override
@@ -375,10 +383,10 @@ public class SlideHolder extends FrameLayout {
 		return handled;
 	}
 	
-	private void startSlideMode() {
+	private void initSlideMode() {
 		View v = getChildAt(1);
 		
-		if(mSlideMode == MODE_READY) {
+		if(mMode == MODE_READY) {
 			mStartOffset = 0;
 			mEndOffset = getChildAt(0).getWidth();
 		} else {
@@ -398,7 +406,7 @@ public class SlideHolder extends FrameLayout {
 		mCachedCanvas.translate(-v.getScrollX(), -v.getScrollY());
 		v.draw(mCachedCanvas);
 		
-		mSlideMode = MODE_SLIDE;
+		mMode = MODE_SLIDE;
 		
 		mMenuView.setVisibility(View.VISIBLE);
 	}
@@ -416,7 +424,7 @@ public class SlideHolder extends FrameLayout {
 			
 			@Override
 			public void run() {
-				mSlideMode = MODE_FINISHED;
+				mMode = MODE_FINISHED;
 				mMenuView.setVisibility(View.VISIBLE);
 			}
 		});
@@ -448,7 +456,7 @@ public class SlideHolder extends FrameLayout {
 			
 			@Override
 			public void run() {
-				mSlideMode = MODE_READY;
+				mMode = MODE_READY;
 				mMenuView.setVisibility(View.GONE);
 			}
 		});
