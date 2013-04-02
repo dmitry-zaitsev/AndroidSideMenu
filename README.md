@@ -43,6 +43,10 @@ Note, that you should provide fixed width for your menu (in xml or programmatica
 On big devices (tablets in landscape orientation) consider always show side menu using this method:
 
 	setAlwaysOpened(true);
+	
+SlideHolder also supports revers swipe (from right to left). To enable this feature use:
+
+	setDirection(SlideHolder.DIRECTION_RIGHT);
 
 License
 =======
