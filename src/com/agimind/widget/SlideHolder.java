@@ -32,6 +32,9 @@ import android.widget.FrameLayout;
 
 public class SlideHolder extends FrameLayout {
 
+	public final static int DIRECTION_LEFT = 1;
+	public final static int DIRECTION_RIGHT = -1;
+	
 	protected final static int MODE_READY = 0;
 	protected final static int MODE_SLIDE = 1;
 	protected final static int MODE_FINISHED = 2;
@@ -42,6 +45,7 @@ public class SlideHolder extends FrameLayout {
 	private View mMenuView;
 	
 	private int mMode = MODE_READY;
+	private int mDirection = DIRECTION_LEFT;
 	
 	private int mOffset = 0;
 	private int mStartOffset;
@@ -80,51 +84,6 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	@Override
-	protected void onLayout(boolean changed, int l, int t, int r, int b) {
-		final int parentLeft = 0;
-		final int parentTop = 0;
-		final int parentBottom = b - t;
-		
-		View menu = getChildAt(0);
-		int menuWidth = menu.getMeasuredWidth();
-		
-		menu.layout(parentLeft, parentTop, parentLeft+menuWidth, parentBottom);
-		
-		if(mAlwaysOpened || mMode == MODE_FINISHED) {
-			mOffset = menuWidth;
-		} else if(mMode == MODE_READY) {
-			mOffset = 0;
-		}
-		
-		View main = getChildAt(1);
-		main.layout(
-					parentLeft + mOffset,
-					parentTop,
-					parentLeft + mOffset + main.getMeasuredWidth(),
-					parentBottom
-				);
-		
-		invalidate();
-	}
-	
-	@Override
-    protected void onMeasure(int wSp, int hSp) {
-		mMenuView = getChildAt(0);
-		
-        if(mAlwaysOpened) {
-            View main = getChildAt(1);
-            
-            if(mMenuView != null && main != null) {
-            	measureChild(mMenuView, wSp, hSp);
-                LayoutParams lp = (LayoutParams) main.getLayoutParams();
-                lp.leftMargin = mMenuView.getMeasuredWidth();
-            }
-        }
-        
-        super.onMeasure(wSp, hSp);
-    }
-	
-	@Override
 	public void setEnabled(boolean enabled) {
 		mEnabled = enabled;
 	}
@@ -132,6 +91,12 @@ public class SlideHolder extends FrameLayout {
 	@Override
 	public boolean isEnabled() {
 		return mEnabled;
+	}
+	
+	public void setDirection(int direction) {
+		closeImmediately();
+		
+		mDirection = direction;
 	}
 	
 	public void setAllowInterceptTouch(boolean allow) {
@@ -153,7 +118,7 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	public boolean isOpened() {
-		return mMode == MODE_FINISHED;
+		return mAlwaysOpened || mMode == MODE_FINISHED;
 	}
 	
 	public void toggle(boolean immediately) {
@@ -243,6 +208,67 @@ public class SlideHolder extends FrameLayout {
 		
 		return true;
 	}
+	
+	@Override
+	protected void onLayout(boolean changed, int l, int t, int r, int b) {
+		final int parentLeft = 0;
+		final int parentTop = 0;
+		final int parentRight = r - l;
+		final int parentBottom = b - t;
+		
+		View menu = getChildAt(0);
+		int menuWidth = menu.getMeasuredWidth();
+		
+		if(mDirection == DIRECTION_LEFT) {
+			menu.layout(parentLeft, parentTop, parentLeft+menuWidth, parentBottom);
+		} else {
+			menu.layout(parentRight-menuWidth, parentTop, parentRight, parentBottom);
+		}
+		
+		if(mAlwaysOpened) {
+			if(mDirection == DIRECTION_LEFT) {
+				mOffset = menuWidth;
+			} else {
+				mOffset = 0;
+			}
+		} else if(mMode == MODE_FINISHED) {
+			mOffset = mDirection*menuWidth;
+		} else if(mMode == MODE_READY) {
+			mOffset = 0;
+		}
+		
+		View main = getChildAt(1);
+		main.layout(
+					parentLeft + mOffset,
+					parentTop,
+					parentLeft + mOffset + main.getMeasuredWidth(),
+					parentBottom
+				);
+		
+		invalidate();
+	}
+	
+	@Override
+    protected void onMeasure(int wSp, int hSp) {
+		mMenuView = getChildAt(0);
+		
+        if(mAlwaysOpened) {
+            View main = getChildAt(1);
+            
+            if(mMenuView != null && main != null) {
+            	measureChild(mMenuView, wSp, hSp);
+                LayoutParams lp = (LayoutParams) main.getLayoutParams();
+                
+                if(mDirection == DIRECTION_LEFT) {
+                	lp.leftMargin = mMenuView.getMeasuredWidth();
+                } else {
+                	lp.rightMargin = mMenuView.getMeasuredWidth();
+                }
+            }
+        }
+        
+        super.onMeasure(wSp, hSp);
+    }
 
 	private byte mFrame = 0;
 	
@@ -264,7 +290,16 @@ public class SlideHolder extends FrameLayout {
 				
 				canvas.save();
 				
-				canvas.clipRect(0, 0, mOffset, getHeight(), Op.REPLACE);
+				if(mDirection == DIRECTION_LEFT) {
+					canvas.clipRect(0, 0, mOffset, menu.getHeight(), Op.REPLACE);
+				} else {
+					int menuWidth = menu.getWidth();
+					int menuLeft = menu.getLeft();
+					
+					canvas.clipRect(menuLeft+menuWidth+mOffset, 0, menuLeft+menuWidth, menu.getHeight());
+				}
+				
+				canvas.translate(menu.getLeft(), menu.getTop());
 				canvas.translate(-scrollX, -scrollY);
 				
 				menu.draw(canvas);
@@ -344,14 +379,15 @@ public class SlideHolder extends FrameLayout {
 		}
 		
 		if(ev.getAction() == MotionEvent.ACTION_MOVE) {
+
 			float diff = x - mHistoricalX;
 
-			if((diff > 50 && mMode == MODE_READY) || (diff < -50 && mMode == MODE_FINISHED)) {
+			if((mDirection*diff > 50 && mMode == MODE_READY) || (mDirection*diff < -50 && mMode == MODE_FINISHED)) {
 				mHistoricalX = (int) x;
 				
 				initSlideMode();
 			} else if(mMode == MODE_SLIDE) {
-				mOffset += (int) x - mHistoricalX;
+				mOffset += diff;
 				
 				mHistoricalX = (int) x;
 				
@@ -388,9 +424,9 @@ public class SlideHolder extends FrameLayout {
 		
 		if(mMode == MODE_READY) {
 			mStartOffset = 0;
-			mEndOffset = getChildAt(0).getWidth();
+			mEndOffset = mDirection*getChildAt(0).getWidth();
 		} else {
-			mStartOffset = getChildAt(0).getWidth();
+			mStartOffset = mDirection*getChildAt(0).getWidth();
 			mEndOffset = 0;
 		}
 		
@@ -412,12 +448,12 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	private boolean isSlideAllowed() {
-		return (mEndOffset > 0 && mOffset < mEndOffset && mOffset >= mStartOffset)
-				|| (mEndOffset == 0 && mOffset > mEndOffset && mOffset <= mStartOffset);
+		return (mDirection*mEndOffset > 0 && mDirection*mOffset < mDirection*mEndOffset && mDirection*mOffset >= mDirection*mStartOffset)
+				|| (mEndOffset == 0 && mDirection*mOffset > mDirection*mEndOffset && mDirection*mOffset <= mDirection*mStartOffset);
 	}
 	
 	private void completeOpening() {
-		mOffset = mMenuView.getWidth();
+		mOffset = mDirection*mMenuView.getWidth();
 		requestLayout();
 		
 		post(new Runnable() {
@@ -481,29 +517,29 @@ public class SlideHolder extends FrameLayout {
 	};
 	
 	private void finishSlide() {
-		if(mEndOffset > 0) {
-			if(mOffset > mEndOffset/2) {
-				if(mOffset > mEndOffset) mOffset = mEndOffset;
+		if(mDirection*mEndOffset > 0) {
+			if(mDirection*mOffset > mDirection*mEndOffset/2) {
+				if(mDirection*mOffset > mDirection*mEndOffset) mOffset = mEndOffset;
 				
 				Animation anim = new SlideAnimation(mOffset, mEndOffset);
 				anim.setAnimationListener(mOpenListener);
 				startAnimation(anim);
 			} else {
-				if(mOffset < mStartOffset) mOffset = mStartOffset;
+				if(mDirection*mOffset < mDirection*mStartOffset) mOffset = mStartOffset;
 				
 				Animation anim = new SlideAnimation(mOffset, mStartOffset);
 				anim.setAnimationListener(mCloseListener);
 				startAnimation(anim);
 			}
 		} else {
-			if(mOffset < mStartOffset/2) {
-				if(mOffset < mEndOffset) mOffset = mEndOffset;
+			if(mDirection*mOffset < mDirection*mStartOffset/2) {
+				if(mDirection*mOffset < mDirection*mEndOffset) mOffset = mEndOffset;
 				
 				Animation anim = new SlideAnimation(mOffset, mEndOffset);
 				anim.setAnimationListener(mCloseListener);
 				startAnimation(anim);
 			} else {
-				if(mOffset > mStartOffset) mOffset = mStartOffset;
+				if(mDirection*mOffset > mDirection*mStartOffset) mOffset = mStartOffset;
 				
 				Animation anim = new SlideAnimation(mOffset, mStartOffset);
 				anim.setAnimationListener(mOpenListener);
