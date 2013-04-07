@@ -183,6 +183,18 @@ public class SlideHolder extends FrameLayout {
 			return false;
 		}
 		
+		if(!isReadyForSlide()) {
+			mWhenReady.add(new Runnable() {
+				
+				@Override
+				public void run() {
+					openImmediately();
+				}
+			});
+			
+			return true;
+		}
+		
 		mMenuView.setVisibility(View.VISIBLE);
 		mMode = MODE_FINISHED;
 		requestLayout();
@@ -225,6 +237,18 @@ public class SlideHolder extends FrameLayout {
 	public boolean closeImmediately() {
 		if(!isOpened() || mAlwaysOpened || mMode == MODE_SLIDE) {
 			return false;
+		}
+		
+		if(!isReadyForSlide()) {
+			mWhenReady.add(new Runnable() {
+				
+				@Override
+				public void run() {
+					closeImmediately();
+				}
+			});
+			
+			return true;
 		}
 		
 		mMenuView.setVisibility(View.GONE);
