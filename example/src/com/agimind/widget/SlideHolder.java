@@ -57,6 +57,7 @@ public class SlideHolder extends FrameLayout {
 	private boolean mEnabled = true;
 	private boolean mInterceptTouch = true;
 	private boolean mAlwaysOpened = false;
+	private boolean mDispatchWhenOpened = false;
 	
 	private Queue<Runnable> mWhenReady = new LinkedList<Runnable>();
 	
@@ -98,12 +99,20 @@ public class SlideHolder extends FrameLayout {
 		return mEnabled;
 	}
 	
+	/**
+	 * 
+	 * @param direction - direction in which SlideHolder opens. Can be: DIRECTION_LEFT, DIRECTION_RIGHT
+	 */
 	public void setDirection(int direction) {
 		closeImmediately();
 		
 		mDirection = direction;
 	}
 	
+	/**
+	 * 
+	 * @param allow - if false, SlideHolder won't react to swiping gestures (but still will be able to work by manually invoking mathods)
+	 */
 	public void setAllowInterceptTouch(boolean allow) {
 		mInterceptTouch = allow;
 	}
@@ -112,6 +121,22 @@ public class SlideHolder extends FrameLayout {
 		return mInterceptTouch;
 	}
 	
+	/**
+	 * 
+	 * @param dispatch - if true, in open state SlideHolder will dispatch touch events to main layout (in other words - it will be clickable)
+	 */
+	public void setDispatchTouchWhenOpened(boolean dispatch) {
+		mDispatchWhenOpened = dispatch;
+	}
+	
+	public boolean isDispatchTouchWhenOpened() {
+		return mDispatchWhenOpened;
+	}
+	
+	/**
+	 * 
+	 * @param opened - if true, SlideHolder will always be in opened state (which means that swiping won't work)
+	 */
 	public void setAlwaysOpened(boolean opened) {
 		mAlwaysOpened = opened;
 		
@@ -385,6 +410,7 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	private int mHistoricalX = 0;
+	private boolean mCloseOnRelease = false;
 	
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -405,12 +431,27 @@ public class SlideHolder extends FrameLayout {
 			
 			return true;
 		} else {
+			final int action = ev.getAction();
+			
 			Rect rect = new Rect();
 			View menu = getChildAt(0);
 			menu.getHitRect(rect);
 			
 			if(!rect.contains((int) ev.getX(), (int) ev.getY())) {
-				onTouchEvent(ev);
+				if (action == MotionEvent.ACTION_UP && mCloseOnRelease && !mDispatchWhenOpened) {
+					close();
+					mCloseOnRelease = false;
+				} else {
+					if(action == MotionEvent.ACTION_DOWN && !mDispatchWhenOpened) {
+						mCloseOnRelease = true;
+					}
+					
+					onTouchEvent(ev);
+				}
+				
+				if(mDispatchWhenOpened) {
+					super.dispatchTouchEvent(ev);
+				}
 				
 				return true;
 			} else {
@@ -462,6 +503,8 @@ public class SlideHolder extends FrameLayout {
 			if(mMode == MODE_SLIDE) {
 				finishSlide();
 			}
+			
+			mCloseOnRelease = false;
 			
 			return false;
 		}
