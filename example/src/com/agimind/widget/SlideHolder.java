@@ -16,6 +16,9 @@
 
 package com.agimind.widget;
 
+import java.util.LinkedList;
+import java.util.Queue;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -54,6 +57,8 @@ public class SlideHolder extends FrameLayout {
 	private boolean mEnabled = true;
 	private boolean mInterceptTouch = true;
 	private boolean mAlwaysOpened = false;
+	
+	private Queue<Runnable> mWhenReady = new LinkedList<Runnable>();
 	
 	private OnSlideListener mListener;
 	
@@ -150,6 +155,18 @@ public class SlideHolder extends FrameLayout {
 			return false;
 		}
 		
+		if(!isReadyForSlide()) {
+			mWhenReady.add(new Runnable() {
+				
+				@Override
+				public void run() {
+					open();
+				}
+			});
+			
+			return true;
+		}
+		
 		initSlideMode();
 		
 		Animation anim = new SlideAnimation(mOffset, mEndOffset);
@@ -180,6 +197,18 @@ public class SlideHolder extends FrameLayout {
 	public boolean close() {
 		if(!isOpened() || mAlwaysOpened || mMode == MODE_SLIDE) {
 			return false;
+		}
+		
+		if(!isReadyForSlide()) {
+			mWhenReady.add(new Runnable() {
+				
+				@Override
+				public void run() {
+					close();
+				}
+			});
+			
+			return true;
 		}
 		
 		initSlideMode();
@@ -246,6 +275,15 @@ public class SlideHolder extends FrameLayout {
 				);
 		
 		invalidate();
+		
+		Runnable rn;
+        while((rn = mWhenReady.poll()) != null) {
+        	rn.run();
+        }
+	}
+	
+	private boolean isReadyForSlide() {
+		return (getWidth() > 0 && getHeight() > 0);
 	}
 	
 	@Override
