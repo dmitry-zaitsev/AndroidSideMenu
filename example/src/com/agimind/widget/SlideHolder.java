@@ -386,8 +386,6 @@ public class SlideHolder extends FrameLayout {
 	
 	private int mHistoricalX = 0;
 	
-	private boolean mClosing = false;
-	
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev) {
 		if(((!mEnabled || !mInterceptTouch) && mMode == MODE_READY) || mAlwaysOpened) {
@@ -412,7 +410,6 @@ public class SlideHolder extends FrameLayout {
 			menu.getHitRect(rect);
 			
 			if(!rect.contains((int) ev.getX(), (int) ev.getY())) {
-				mClosing = true;
 				onTouchEvent(ev);
 				
 				return true;
@@ -437,7 +434,7 @@ public class SlideHolder extends FrameLayout {
 		if(ev.getAction() == MotionEvent.ACTION_DOWN) {
 			mHistoricalX = (int) x;
 			
-			return mClosing;
+			return true;
 		}
 		
 		if(ev.getAction() == MotionEvent.ACTION_MOVE) {
