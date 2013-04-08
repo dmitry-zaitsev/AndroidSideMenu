@@ -522,6 +522,8 @@ public class SlideHolder extends FrameLayout {
 	}
 	
 	private void initSlideMode() {
+		mCloseOnRelease = false;
+		
 		View v = getChildAt(1);
 		
 		if(mMode == MODE_READY) {
