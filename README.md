@@ -33,12 +33,11 @@ There is no need to extend another Activity, all you have to do is wrap your lay
 		<View 
 			android:layout_width="match_parent"
 			android:layout_height="match_parent"
-			android:background="@color/your_background_color"
 			/>
 			
 	</com.agimind.widget.SlideHolder>
 	
-Note, that you should provide fixed width for your menu (in xml or programmaticaly) and explicitly set non-transparent background for your main layour.
+Note, that you should provide fixed width for your menu (in xml or programmaticaly).
 
 On big devices (tablets in landscape orientation) consider always show side menu using this method:
 
