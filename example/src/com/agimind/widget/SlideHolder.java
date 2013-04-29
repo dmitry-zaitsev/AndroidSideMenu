@@ -22,9 +22,12 @@ import java.util.Queue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff.Mode;
 import android.graphics.Rect;
 import android.graphics.Region.Op;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -141,6 +144,10 @@ public class SlideHolder extends FrameLayout {
 		mAlwaysOpened = opened;
 		
 		requestLayout();
+	}
+	
+	public int getMenuOffset() {
+		return mOffset;
 	}
 	
 	public void setOnSlideListener(OnSlideListener lis) {
@@ -363,8 +370,25 @@ public class SlideHolder extends FrameLayout {
 	protected void dispatchDraw(Canvas canvas) {
 		try {
 			if(mMode == MODE_SLIDE) {
-				if(++mFrame % 5 == 0) {		//redraw every 5th frame
-					getChildAt(1).draw(mCachedCanvas);
+				View main = getChildAt(1);
+				if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+					/*
+					 * On new versions we redrawing main layout only
+					 * if it's marked as dirty 
+					 */
+					if(main.isDirty()) {
+						mCachedCanvas.drawColor(Color.TRANSPARENT, Mode.CLEAR);
+						main.draw(mCachedCanvas);
+				}
+				} else {
+					/*
+					 * On older versions we just redrawing our cache
+					 * every 5th frame
+					 */
+					if(++mFrame % 5 == 0) {
+						mCachedCanvas.drawColor(Color.TRANSPARENT, Mode.CLEAR);
+						main.draw(mCachedCanvas);
+					}
 				}
 
 				/*
@@ -427,6 +451,7 @@ public class SlideHolder extends FrameLayout {
 				MotionEvent cancelEvent = MotionEvent.obtain(ev);
 				cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
 				super.dispatchTouchEvent(cancelEvent);
+				cancelEvent.recycle();
 			}
 			
 			return true;
@@ -539,6 +564,8 @@ public class SlideHolder extends FrameLayout {
 		if(mCachedBitmap == null || mCachedBitmap.isRecycled() || mCachedBitmap.getWidth() != v.getWidth()) {
 			mCachedBitmap = Bitmap.createBitmap(v.getWidth(), v.getHeight(), Bitmap.Config.ARGB_8888);
 			mCachedCanvas = new Canvas(mCachedBitmap);
+		} else {
+			mCachedCanvas.drawColor(Color.TRANSPARENT, Mode.CLEAR);
 		}
 		
 		v.setVisibility(View.VISIBLE);
