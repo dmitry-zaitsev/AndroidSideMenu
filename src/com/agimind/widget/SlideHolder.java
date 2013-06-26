@@ -679,9 +679,15 @@ public class SlideHolder extends FrameLayout {
 		}
 	}
 	
+	public static void setSpeed(float speed) {
+		/* or can we config speed in XML ? */
+		SlideAnimation.setSpeed(speed);
+	}
+	
+	
 	private class SlideAnimation extends Animation {
 		
-		private static final float SPEED = 0.6f;
+		private static float SPEED = 0.6f;
 		
 		private float mStart;
 		private float mEnd;
@@ -706,6 +712,13 @@ public class SlideHolder extends FrameLayout {
 			postInvalidate();
 		}
 		
+		public static void setSpeed(float speed) {
+			if (speed < 0 || speed > 1) {
+				return;
+			} else {
+				SPEED = speed;
+			}
+		}
 	}
 	
 	public static interface OnSlideListener {
