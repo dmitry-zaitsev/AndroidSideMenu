@@ -52,6 +52,7 @@ public class SlideHolder extends FrameLayout {
 	
 	private int mMode = MODE_READY;
 	private int mDirection = DIRECTION_LEFT;
+	private float mSpeed = 0.6f;
 	
 	private int mOffset = 0;
 	private int mStartOffset;
@@ -201,7 +202,7 @@ public class SlideHolder extends FrameLayout {
 		
 		initSlideMode();
 		
-		Animation anim = new SlideAnimation(mOffset, mEndOffset);
+		Animation anim = new SlideAnimation(mOffset, mEndOffset, mSpeed);
 		anim.setAnimationListener(mOpenListener);
 		startAnimation(anim);
 		
@@ -257,7 +258,7 @@ public class SlideHolder extends FrameLayout {
 		
 		initSlideMode();
 		
-		Animation anim = new SlideAnimation(mOffset, mEndOffset);
+		Animation anim = new SlideAnimation(mOffset, mEndOffset, mSpeed);
 		anim.setAnimationListener(mCloseListener);
 		startAnimation(anim);
 		
@@ -652,13 +653,13 @@ public class SlideHolder extends FrameLayout {
 			if(mDirection*mOffset > mDirection*mEndOffset/2) {
 				if(mDirection*mOffset > mDirection*mEndOffset) mOffset = mEndOffset;
 				
-				Animation anim = new SlideAnimation(mOffset, mEndOffset);
+				Animation anim = new SlideAnimation(mOffset, mEndOffset, mSpeed);
 				anim.setAnimationListener(mOpenListener);
 				startAnimation(anim);
 			} else {
 				if(mDirection*mOffset < mDirection*mStartOffset) mOffset = mStartOffset;
 				
-				Animation anim = new SlideAnimation(mOffset, mStartOffset);
+				Animation anim = new SlideAnimation(mOffset, mStartOffset, mSpeed);
 				anim.setAnimationListener(mCloseListener);
 				startAnimation(anim);
 			}
@@ -666,39 +667,40 @@ public class SlideHolder extends FrameLayout {
 			if(mDirection*mOffset < mDirection*mStartOffset/2) {
 				if(mDirection*mOffset < mDirection*mEndOffset) mOffset = mEndOffset;
 				
-				Animation anim = new SlideAnimation(mOffset, mEndOffset);
+				Animation anim = new SlideAnimation(mOffset, mEndOffset, mSpeed);
 				anim.setAnimationListener(mCloseListener);
 				startAnimation(anim);
 			} else {
 				if(mDirection*mOffset > mDirection*mStartOffset) mOffset = mStartOffset;
 				
-				Animation anim = new SlideAnimation(mOffset, mStartOffset);
+				Animation anim = new SlideAnimation(mOffset, mStartOffset, mSpeed);
 				anim.setAnimationListener(mOpenListener);
 				startAnimation(anim);
 			}
 		}
 	}
 	
-	public static void setSpeed(float speed) {
-		/* or can we config speed in XML ? */
-		SlideAnimation.setSpeed(speed);
+	public void setSpeed(float speed) {
+		if (speed <= 0) {
+			return;
+		} 
+		mSpeed = speed;
 	}
 	
 	
 	private class SlideAnimation extends Animation {
-		
-		private static float SPEED = 0.6f;
-		
+
 		private float mStart;
 		private float mEnd;
 		
-		public SlideAnimation(float fromX, float toX) {
+		public SlideAnimation(float fromX, float toX, float speed) {
+
 			mStart = fromX;
 			mEnd = toX;
 			
 			setInterpolator(new DecelerateInterpolator());
 
-			float duration = Math.abs(mEnd - mStart) / SPEED;
+			float duration = Math.abs(mEnd - mStart) / speed;
 			setDuration((long) duration);
 		}
 		
@@ -712,13 +714,6 @@ public class SlideHolder extends FrameLayout {
 			postInvalidate();
 		}
 		
-		public static void setSpeed(float speed) {
-			if (speed < 0 || speed > 1) {
-				return;
-			} else {
-				SPEED = speed;
-			}
-		}
 	}
 	
 	public static interface OnSlideListener {
@@ -726,3 +721,4 @@ public class SlideHolder extends FrameLayout {
 	}
 
 }
+
