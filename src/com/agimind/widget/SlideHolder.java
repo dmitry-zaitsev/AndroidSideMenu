@@ -481,12 +481,19 @@ public class SlideHolder extends FrameLayout {
 				
 				return true;
 			} else {
-				onTouchEvent(ev);
-				
-				ev.offsetLocation(-menu.getLeft(), -menu.getTop());
-				menu.dispatchTouchEvent(ev);
-				
-				return true;
+				try {
+					onTouchEvent(ev);
+					
+					ev.offsetLocation(-menu.getLeft(), -menu.getTop());
+					menu.dispatchTouchEvent(ev);
+					
+					return true;
+				} catch (IllegalArgumentException e) {
+					/*
+					* Possibility of crashes on some devices (especially on Samsung).
+					*/
+					return super.dispatchTouchEvent(ev);
+				}
 			}
 		}
 	}
