@@ -489,11 +489,11 @@ public class SlideHolder extends FrameLayout {
 					
 					return true;
 				} catch (IllegalArgumentException e) {
-		                    /*
-		                     * Possibility of crashes on some devices (especially on Samsung).
-		                     */
-		                    return super.dispatchTouchEvent(ev);
-		                }
+					/*
+					* Possibility of crashes on some devices (especially on Samsung).
+					*/
+					return super.dispatchTouchEvent(ev);
+				}
 			}
 		}
 	}
