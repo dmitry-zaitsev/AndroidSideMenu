@@ -1,3 +1,8 @@
+Deprecated
+===============
+
+This library is deprecated and won't be supported any longer. Instead, I would suggest you to use <a href="http://developer.android.com/reference/android/support/v4/widget/DrawerLayout.html">DrawerLayout</a> which is supported by Google and follows their design guidelines.
+
 AndroidSideMenu
 ===============
 
